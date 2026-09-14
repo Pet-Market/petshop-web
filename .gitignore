@@ -1,0 +1,29 @@
+# Python / Django
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Local database & uploads
+*.sqlite3
+media/
+
+# Static files build output
+staticfiles/
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+
+# Celery / Redis / logs
+celerybeat-schedule
+*.log
+*.pid
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

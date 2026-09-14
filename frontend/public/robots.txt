@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /appointments
+Disallow: /orders
+Disallow: /order

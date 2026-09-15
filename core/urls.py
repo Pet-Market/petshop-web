@@ -1,14 +1,15 @@
-from django.urls import path
-from . import views
+"""URL routes for the legacy server-rendered HTML layer.
 
-urlpatterns = [
-    path('', views.index, name='index'),
-    path('animals/', views.animal_list, name='animal_list'),
-    path('animals/<int:id>/', views.animal_detail, name='animal_detail'),
-    path('products/', views.product_list, name='product_list'),
-    path('doctors/', views.doctor_list, name='doctor_list'),
-    path('appointment/', views.appointment_form, name='appointment_form'),
-    path('appointments/', views.appointment_list, name='appointment_list'),
-    path('order/<int:product_id>/', views.order_create, name='order_create'),
-    path('orders/', views.order_list, name='order_list'),
-]
+This project is API-first: the site is a React SPA (see frontend/) that talks to
+the DRF endpoints mounted at /api/ in core/api_urls. There are no server-rendered
+HTML pages anymore (core/templates/bootstrap/ removed and core/views.py trimmed),
+so this router intentionally exposes no HTML page URLs.
+
+Keeping this module present (empty) so that config.urls -> include('core.urls')
+continues to resolve and the `core` app stays registered. Remove the include()
+from config/urls if/when the HTML routes are fully dropped.
+"""
+
+from django.urls import path
+
+urlpatterns: list = []

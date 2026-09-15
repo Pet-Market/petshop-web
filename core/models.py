@@ -24,6 +24,21 @@ class AnimalType(models.Model):
         return self.name
 
 
+class AnimalListing(models.Model):
+    title = models.CharField(max_length=200)
+    animal_type = models.ForeignKey(
+        AnimalType, on_delete=models.CASCADE, related_name='listings'
+    )
+    price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    stock = models.IntegerField(default=1)
+    description = models.TextField(blank=True)
+    contact_phone = models.CharField(max_length=20, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title
+
+
 class Category(models.Model):
     name = models.CharField(max_length=100)
     animal_type = models.ForeignKey(AnimalType, on_delete=models.CASCADE, related_name='categories')
@@ -72,18 +87,79 @@ class Appointment(models.Model):
 
 
 class Order(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='orders')
+    product = models.ForeignKey(
+        Product, null=True, blank=True, on_delete=models.SET_NULL, related_name='orders'
+    )
     customer_name = models.CharField(max_length=100)
     customer_phone = models.CharField(max_length=20)
     customer_address = models.TextField()
     quantity = models.IntegerField(default=1)
-    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    listing = models.ForeignKey(
+        AnimalListing, null=True, blank=True, on_delete=models.SET_NULL, related_name='orders'
+    )
+    pickup_date = models.DateField(null=True, blank=True)
+    pickup_time = models.TimeField(null=True, blank=True)
+    total_price = models.DecimalField(max_digits=12, decimal_places=2)
     status = models.CharField(max_length=50, choices=ORDER_STATUS, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.customer_name} - {self.product.name}"
+        return f"{self.customer_name} - {self.product.name if self.product else (self.listing.title if self.listing else '')}"
 
     def save(self, *args, **kwargs):
-        self.total_price = self.product.price * self.quantity
+        price = 0
+        if self.product:
+            price = self.product.price
+        elif self.listing:
+            price = self.listing.price
+        self.total_price = price * self.quantity
         super().save(*args, **kwargs)
+
+
+class Client(models.Model):
+    """A pet-shop customer identified by Telegram (TMA) and/or phone.
+
+    On first TMA login a random password is generated, sent to the user's
+    Telegram chat by the shop bot, and stored hashed. The same phone +
+    password then unlocks the account on the regular web site.
+    """
+
+    telegram_id = models.BigIntegerField(null=True, blank=True, unique=True)
+    phone = models.CharField(max_length=20, unique=True, null=True, blank=True)
+    first_name = models.CharField(max_length=100, blank=True, default='')
+    username = models.CharField(max_length=100, blank=True, default='')
+    password_hash = models.CharField(max_length=200, blank=True, default='')
+    auth_token = models.CharField(max_length=64, unique=True, null=True, blank=True, db_index=True)
+    password_generated_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_login = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return self.phone or self.username or f'Telegram:{self.telegram_id}'
+
+    @property
+    def has_password(self):
+        return bool(self.password_hash)
+
+    def set_password(self, raw_password: str):
+        from django.contrib.auth.hashers import make_password
+
+        self.password_hash = make_password(raw_password)
+
+    def check_password(self, raw_password: str) -> bool:
+        from django.contrib.auth.hashers import check_password
+
+        if not self.password_hash:
+            return False
+        return check_password(raw_password, self.password_hash)
+
+    def generate_token(self) -> str:
+        import secrets
+
+        self.auth_token = secrets.token_urlsafe(32)
+        return self.auth_token
+
+    def touch_login(self):
+        from django.utils import timezone
+
+        self.last_login = timezone.now()

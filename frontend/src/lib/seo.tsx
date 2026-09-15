@@ -1,7 +1,7 @@
 import { Helmet, HelmetProvider } from 'react-helmet-async'
 
-const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://petshop.uz'
-const SITE_NAME = 'PetShop'
+const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://petmarket.uz'
+const SITE_NAME = 'Pet Market'
 
 interface SeoProps {
   title: string

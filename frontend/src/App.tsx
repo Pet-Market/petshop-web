@@ -9,6 +9,9 @@ import { AppointmentFormPage } from '@/pages/AppointmentFormPage'
 import { AppointmentsPage } from '@/pages/AppointmentsPage'
 import { OrderFormPage } from '@/pages/OrderFormPage'
 import { OrdersPage } from '@/pages/OrdersPage'
+import { ListingDetailPage } from '@/pages/ListingDetailPage'
+import { CartPage } from '@/pages/CartPage'
+import { CheckoutPage } from '@/pages/CheckoutPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
 const router = createBrowserRouter([
@@ -24,7 +27,10 @@ const router = createBrowserRouter([
       { path: 'appointments/new', element: <AppointmentFormPage /> },
       { path: 'appointments', element: <AppointmentsPage /> },
       { path: 'order/:id', element: <OrderFormPage /> },
+      { path: 'listings/:id', element: <ListingDetailPage /> },
       { path: 'orders', element: <OrdersPage /> },
+      { path: 'cart', element: <CartPage /> },
+      { path: 'checkout', element: <CheckoutPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

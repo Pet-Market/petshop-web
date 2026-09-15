@@ -1,4 +1,6 @@
 """Tests for the standardized API response layer."""
+import json
+import urllib.parse
 from datetime import date
 from decimal import Decimal
 from unittest.mock import patch
@@ -8,7 +10,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from .middleware import REQUEST_ID_HEADER, RequestIdMiddleware
-from ..models import AnimalType, Category, Product, Doctor, Order, Appointment
+from ..models import AnimalType, Category, Product, Doctor, Order, Appointment, Client, AnimalListing
 
 
 class EnvelopeBase(TestCase):
@@ -260,3 +262,145 @@ class CacheInvalidationTests(TestCase):
         self.assertEqual(catalog_version('product'), before['product'] + 1)
         self.assertEqual(catalog_version('category'), before['category'] + 1)
         self.assertEqual(catalog_version('animal_type'), before['animal_type'] + 1)
+
+class AuthTests(TestCase):
+    """Password + TMA login flow (no bot token → hash not verified, demo mode)."""
+
+    def _init_data(self, tg_id=123456789, first='Aziz', username='aziz_uz'):
+        user = {'id': tg_id, 'first_name': first, 'username': username}
+        return urllib.parse.urlencode({
+            'user': json.dumps(user, separators=(',', ':')),
+            'auth_date': '1',
+            'hash': 'demo-hash-not-verified-without-token',
+        })
+
+    @patch('core.api.views.generate_password', return_value='TEST1234')
+    def test_tma_first_login_creates_client_and_password(self, _gen):
+        response = self.client.post('/api/auth/tma/', {
+            'init_data': self._init_data(),
+            'phone': '+998 90 123 45 67',
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = response.json()
+        self.assertTrue(body['success'])
+        data = body['data']
+        self.assertTrue(data['is_first_login'])
+        self.assertTrue(data['password_sent'])
+        self.assertTrue(data['token'])
+        self.assertEqual(data['client']['phone'], '+998901234567')
+        self.assertEqual(data['client']['first_name'], 'Aziz')
+        self.assertTrue(data['client']['has_password'])
+
+        # The generated password (patched) lets the user log in on the web.
+        login = self.client.post('/api/auth/login/', {
+            'phone': '+998901234567', 'password': 'TEST1234',
+        }, format='json')
+        self.assertEqual(login.status_code, status.HTTP_200_OK)
+        self.assertEqual(login.json()['data']['client']['id'], data['client']['id'])
+
+    def test_tma_second_login_returns_same_client(self):
+        first = self.client.post('/api/auth/tma/', {'init_data': self._init_data()}, format='json')
+        second = self.client.post('/api/auth/tma/', {'init_data': self._init_data()}, format='json')
+        self.assertEqual(first.json()['data']['client']['id'], second.json()['data']['client']['id'])
+        self.assertTrue(first.json()['data']['is_first_login'])
+        self.assertFalse(second.json()['data']['is_first_login'])
+        self.assertFalse(second.json()['data']['password_sent'])
+        self.assertEqual(Client.objects.count(), 1)
+
+    def test_web_login_wrong_credentials(self):
+        client = Client.objects.create(phone='+998901234567')
+        client.set_password('SECRET88')
+        client.save(update_fields=['password_hash'])
+        bad = self.client.post('/api/auth/login/', {'phone': '+998901234567', 'password': 'WRONG1'}, format='json')
+        self.assertEqual(bad.status_code, status.HTTP_401_UNAUTHORIZED)
+        ok = self.client.post('/api/auth/login/', {'phone': '+998901234567', 'password': 'SECRET88'}, format='json')
+        self.assertEqual(ok.status_code, status.HTTP_200_OK)
+        token = ok.json()['data']['token']
+        me = self.client.get('/api/auth/me/', HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.assertEqual(me.status_code, status.HTTP_200_OK)
+        self.assertEqual(me.json()['data']['client']['phone'], '+998901234567')
+
+    def test_me_requires_token(self):
+        response = self.client.get('/api/auth/me/')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_invalidates_token(self):
+        client = Client.objects.create(phone='+998901234567')
+        client.set_password('SECRET88')
+        client.generate_token()
+        client.save()
+        self.client.post('/api/auth/logout/', HTTP_AUTHORIZATION=f'Bearer {client.auth_token}')
+        me = self.client.get('/api/auth/me/', HTTP_AUTHORIZATION=f'Bearer {client.auth_token}')
+        self.assertEqual(me.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_reset_password_unknown_phone(self):
+        response = self.client.post('/api/auth/reset-password/', {'phone': '+998909999999'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class AnimalListingTests(EnvelopeBase):
+    def setUp(self):
+        super().setUp()
+        self.listing = AnimalListing.objects.create(
+            title='Oltin retriever kuchukcha',
+            animal_type=self.dog,
+            price=Decimal('5500000.00'),
+            stock=2,
+            description='3 oylik, emlangan',
+            contact_phone='+998901112233',
+        )
+
+    def test_listing_list_shows_sale_data(self):
+        response = self.client.get('/api/listings/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = response.json()
+        self.assertTrue(body['success'])
+        data = body['data'][0]
+        self.assertEqual(data['title'], 'Oltin retriever kuchukcha')
+        self.assertEqual(data['animal_type_name'], 'It')
+        self.assertTrue(data['in_stock'])
+        self.assertIn('price', data)
+
+    def test_listing_filter_by_animal_type(self):
+        listing = AnimalListing.objects.create(
+            title='Mushukcha', animal_type=self.cat, price=Decimal('100000.00'), stock=1,
+        )
+        response = self.client.get(f'/api/listings/?animal_type={self.cat.id}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()['data']
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['id'], listing.id)
+
+    def test_listing_order_out_of_stock(self):
+        response = self.client.get('/api/listings/')
+        data = response.json()['data']
+        self.assertTrue(data[0]['in_stock'])
+
+    def test_create_order_from_listing(self):
+        response = self.client.post('/api/orders/', {
+            'listing': self.listing.id, 'quantity': 1,
+            'customer_name': 'Ali', 'customer_phone': '+998901112233',
+            'customer_address': 'Tashkent',
+            'pickup_date': '2026-09-20', 'pickup_time': '10:30',
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        data = response.json()['data']
+        self.assertEqual(data['listing_name'], 'Oltin retriever kuchukcha')
+        self.assertEqual(data['pickup_date'], '2026-09-20')
+        self.assertEqual(data['pickup_time'], '10:30:00')
+        self.assertEqual(Decimal(data['total_price']), Decimal('5500000.00'))
+
+    def test_listing_order_stock_validation(self):
+        response = self.client.post('/api/orders/', {
+            'listing': self.listing.id, 'quantity': 99,
+            'customer_name': 'Ali', 'customer_phone': '+998901112233',
+            'customer_address': 'Tashkent',
+        })
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    def test_order_requires_product_or_listing(self):
+        response = self.client.post('/api/orders/', {
+            'customer_name': 'Ali', 'customer_phone': '+998901112233',
+            'customer_address': 'Tashkent', 'pickup_date': '2026-09-20',
+        })
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)

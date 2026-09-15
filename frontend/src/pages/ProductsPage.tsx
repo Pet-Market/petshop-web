@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, PackageOpen, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -16,7 +16,8 @@ import type { AnimalType } from '@/types'
 
 export function ProductsPage() {
   const { t } = useLang()
-  const [search, setSearch] = useState('')
+  const [searchParams] = useSearchParams()
+  const [search, setSearch] = useState(searchParams.get('search') ?? '')
   const [animalFilter, setAnimalFilter] = useState<number | null>(null)
 
   const animalTypes = useQuery({ queryKey: ['animal-types'], queryFn: api.animalTypes.list })
@@ -53,16 +54,16 @@ export function ProductsPage() {
         </div>
       </PageHeader>
 
-      <div className="mx-auto max-w-6xl px-4 py-12">
+      <div className="mx-auto max-w-6xl px-4 py-8 md:py-10">
         {animalTypes.data?.length ? (
           <div className="mb-10 flex flex-wrap items-center justify-center gap-2" role="group" aria-label={t('products.filterByType')}>
             <button
               onClick={() => setAnimalFilter(null)}
               className={cn(
-                'flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
+                'flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all',
                 animalFilter === null
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'bg-card hover:bg-muted'
+                  ? 'bg-primary text-white shadow-lg shadow-primary/25'
+                  : 'glass-card text-slate-300 hover:bg-slate-700/60'
               )}
             >
               {t('common.all')}
@@ -72,10 +73,10 @@ export function ProductsPage() {
                 key={animal.id}
                 onClick={() => setAnimalFilter(animalFilter === animal.id ? null : animal.id)}
                 className={cn(
-                  'flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
+                  'flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all',
                   animalFilter === animal.id
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'bg-card hover:bg-muted'
+                    ? 'bg-primary text-white shadow-lg shadow-primary/25'
+                    : 'glass-card text-slate-300 hover:bg-slate-700/60'
                 )}
               >
                 <AnimalIcon iconName={animal.icon} className="h-4 w-4" />

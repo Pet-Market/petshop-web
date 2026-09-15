@@ -5,6 +5,19 @@ export interface AnimalType {
   icon: string
 }
 
+export interface AnimalListing {
+  id: number
+  title: string
+  animal_type: number
+  animal_type_name: string
+  price: string
+  stock: number
+  description: string
+  contact_phone: string
+  in_stock: boolean
+  created_at: string
+}
+
 export interface Category {
   id: number
   name: string
@@ -56,13 +69,18 @@ export type OrderStatus = 'pending' | 'confirmed' | 'delivered' | 'cancelled'
 
 export interface Order {
   id: number
-  product: number
+  product: number | null
   product_name: string
-  product_price: string
+  product_price: string | null
+  listing: number | null
+  listing_name: string
+  listing_price: string | null
   customer_name: string
   customer_phone: string
   customer_address: string
   quantity: number
+  pickup_date: string | null
+  pickup_time: string | null
   total_price: string
   status: OrderStatus
   created_at: string
@@ -80,9 +98,12 @@ export interface AppointmentPayload {
 }
 
 export interface OrderPayload {
-  product: number
+  product?: number
+  listing?: number
   customer_name: string
   customer_phone: string
   customer_address: string
   quantity: number
+  pickup_date?: string
+  pickup_time?: string
 }

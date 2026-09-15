@@ -98,7 +98,7 @@ export function AppointmentFormPage() {
       />
       <PageHeader title={t('appointmentForm.title')} subtitle={t('appointmentForm.subtitle')} />
 
-      <div className="mx-auto max-w-xl px-4 py-12">
+      <div className="mx-auto max-w-xl px-4 py-8 md:py-10">
         <Card>
           <CardHeader>
             <CardTitle className="font-display flex items-center gap-2 text-2xl">

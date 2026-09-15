@@ -1,11 +1,12 @@
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, PawPrint } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ProductCard } from '@/components/common/ProductCard'
+import { ListingCard } from '@/components/common/ListingCard'
 import { AnimalIcon } from '@/components/common/AnimalIcon'
 import { api } from '@/lib/api'
 import { Seo } from '@/lib/seo'
@@ -31,6 +32,11 @@ export function AnimalDetailPage() {
     queryFn: () => api.products.list({ animal_type: animalId }),
     enabled: Number.isFinite(animalId),
   })
+  const listings = useQuery({
+    queryKey: ['listings', animalId],
+    queryFn: () => api.listings.list(animalId),
+    enabled: Number.isFinite(animalId),
+  })
 
   const isLoading = animal.isLoading || categories.isLoading || products.isLoading
 
@@ -38,7 +44,7 @@ export function AnimalDetailPage() {
     <>
       <Seo
         path={`/animals/${animalId}`}
-        title={`${animal.data?.name ?? 'Animal'} – PetShop`}
+        title={`${animal.data?.name ?? 'Animal'} – Pet Market`}
         description={animal.data?.description ?? `Products and categories for ${animal.data?.name ?? 'animals'}`}
       />
 
@@ -116,6 +122,31 @@ export function AnimalDetailPage() {
                 {t('animalDetail.noCategories')}
               </motion.p>
             )}
+
+            {/* For-sale listings of this species */}
+            <section className="mt-16 space-y-4">
+              <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+                <PawPrint className="h-5 w-5 text-primary" aria-hidden="true" />
+                {t('animalDetail.forSale')} {animal.data?.name}
+              </h2>
+              {listings.isLoading ? (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-72" />
+                  ))}
+                </div>
+              ) : listings.data?.length ? (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {listings.data.map((listing, i) => (
+                    <ListingCard key={listing.id} listing={listing} index={i} />
+                  ))}
+                </div>
+              ) : (
+                <Card className="p-10 text-center text-muted-foreground">
+                  {t('listings.empty')}
+                </Card>
+              )}
+            </section>
           </div>
         </>
       )}

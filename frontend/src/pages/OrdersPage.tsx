@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { PackageX, ShoppingBag } from 'lucide-react'
+import { CalendarClock, PackageX, ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/common/StatusBadge'
 import { PageHeader } from '@/components/common/SectionHeading'
 import { api } from '@/lib/api'
 import { Seo } from '@/lib/seo'
-import { formatDateTime, formatPrice } from '@/lib/format'
+import { formatDate, formatDateTime, formatPrice, formatTime } from '@/lib/format'
 import { useLang } from '@/lib/i18n/LangProvider'
 import type { Order } from '@/types'
 
@@ -25,7 +25,7 @@ export function OrdersPage() {
       />
       <PageHeader title={t('orders.title')} subtitle={t('orders.subtitle')} />
 
-      <div className="mx-auto max-w-4xl px-4 py-12">
+      <div className="mx-auto max-w-4xl px-4 py-8 md:py-10">
         {orders.isLoading ? (
           <div className="space-y-4">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -39,7 +39,9 @@ export function OrdersPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-lg font-bold">{order.product_name}</h2>
+                      <h2 className="text-lg font-bold">
+                        {order.product_name || order.listing_name}
+                      </h2>
                       <StatusBadge status={order.status} />
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -51,7 +53,7 @@ export function OrdersPage() {
                       {formatPrice(order.total_price)}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {order.quantity} × {formatPrice(order.product_price)}
+                      {order.quantity} × {formatPrice(order.product_price ?? order.listing_price ?? 0)}
                     </p>
                   </div>
                 </div>
@@ -65,6 +67,15 @@ export function OrdersPage() {
                     <dt className="text-muted-foreground">{t('orders.phone')}:</dt>
                     <dd>{order.customer_phone}</dd>
                   </div>
+                  {order.pickup_date ? (
+                    <div className="flex items-center gap-2 sm:col-span-2">
+                      <CalendarClock className="h-4 w-4 text-primary" aria-hidden="true" />
+                      <dt className="text-muted-foreground">{t('orders.pickup')}:</dt>
+                      <dd>
+                        {formatDate(order.pickup_date)} • {formatTime(order.pickup_time)}
+                      </dd>
+                    </div>
+                  ) : null}
                 </dl>
               </Card>
             ))}

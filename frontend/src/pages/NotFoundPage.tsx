@@ -7,7 +7,7 @@ export function NotFoundPage() {
   const { t } = useLang()
   return (
     <div className="mx-auto flex max-w-xl flex-col items-center px-4 py-24 text-center">
-      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 text-primary shadow-clay">
+      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 text-primary shadow-glow">
         <PawPrint className="h-9 w-9" />
       </div>
       <p className="font-display text-7xl font-bold text-primary">404</p>

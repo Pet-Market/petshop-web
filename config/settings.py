@@ -235,6 +235,16 @@ REST_FRAMEWORK = {
 # Response standard: mock/demo endpoints for frontend development
 ENABLE_MOCKS = True
 
+# --- Telegram Mini App (TMA) password auth --------------------------------
+# Bot created via @BotFather; used to (a) validate TMA initData hashes and
+# (b) deliver the one-time login password straight to the user's chat.
+# Without a token the hash is not verified and passwords are written to the
+# server log only (demo mode) — set TELEGRAM_BOT_TOKEN before going live.
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+
+# How old an initData `auth_date` may be before it is rejected (seconds).
+TELEGRAM_AUTH_MAX_AGE = int(os.environ.get('TELEGRAM_AUTH_MAX_AGE', '86400'))
+
 # Monitoring: django-silk (demo: open access; restrict before production)
 if SILK_INSTALLED:
     SILKY_AUTHENTICATION = False

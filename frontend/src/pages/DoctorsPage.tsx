@@ -24,7 +24,7 @@ export function DoctorsPage() {
       />
       <PageHeader title={t('doctors.title')} subtitle={t('doctors.subtitle')} />
 
-      <div className="mx-auto max-w-6xl px-4 py-12">
+      <div className="mx-auto max-w-6xl px-4 py-8 md:py-10">
         {doctors.isLoading ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (

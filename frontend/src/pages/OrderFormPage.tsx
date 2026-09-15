@@ -72,7 +72,7 @@ export function OrderFormPage() {
     onSuccess: (order) => {
       toast.success(t('orderForm.success'))
       addItem({
-        productId: order.product,
+        productId: order.product ?? productId,
         name: order.product_name,
         price: Number(order.product_price),
         stock: order.quantity,
@@ -133,7 +133,7 @@ export function OrderFormPage() {
             title={`${t('orderForm.title')} — ${product.data.name}`}
             subtitle={t('orderForm.subtitle')}
           />
-          <div className="mx-auto max-w-xl px-4 py-12">
+          <div className="mx-auto max-w-xl px-4 py-8 md:py-10">
             <Card>
               <CardHeader>
                 <CardTitle className="font-display flex items-center gap-2 text-2xl">

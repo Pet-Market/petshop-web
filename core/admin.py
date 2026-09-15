@@ -1,5 +1,12 @@
 from django.contrib import admin
-from .models import AnimalType, Category, Product, Doctor, Appointment, Order
+from .models import AnimalType, Category, Product, Doctor, Appointment, Order, Client, AnimalListing
+
+@admin.register(Client)
+class ClientAdmin(admin.ModelAdmin):
+    list_display = ['id', 'phone', 'first_name', 'username', 'telegram_id', 'has_password', 'last_login', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['phone', 'first_name', 'username', 'telegram_id']
+    readonly_fields = ['password_hash', 'created_at', 'last_login', 'auth_token']
 
 @admin.register(AnimalType)
 class AnimalTypeAdmin(admin.ModelAdmin):
@@ -33,10 +40,17 @@ class AppointmentAdmin(admin.ModelAdmin):
     list_editable = ['status']
     date_hierarchy = 'date'
 
+@admin.register(AnimalListing)
+class AnimalListingAdmin(admin.ModelAdmin):
+    list_display = ['title', 'animal_type', 'price', 'stock', 'contact_phone', 'created_at']
+    list_filter = ['animal_type', 'created_at']
+    search_fields = ['title', 'description', 'contact_phone']
+    list_editable = ['price', 'stock']
+
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ['customer_name', 'product', 'quantity', 'total_price', 'status', 'created_at']
-    list_filter = ['status', 'product', 'created_at']
+    list_display = ['customer_name', 'product', 'listing', 'quantity', 'total_price', 'status', 'pickup_date', 'pickup_time']
+    list_filter = ['status', 'product', 'listing', 'created_at']
     search_fields = ['customer_name', 'customer_phone', 'customer_address']
     list_editable = ['status']
     date_hierarchy = 'created_at'

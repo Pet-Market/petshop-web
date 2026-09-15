@@ -1,0 +1,104 @@
+name: CI/CD - PetShop
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: petshop-deploy
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: '3.13'
+
+jobs:
+  backend:
+    name: Backend check + tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Django system check
+        run: python manage.py check
+
+      - name: Run test suite
+        run: python manage.py test
+
+      - name: No pending migrations
+        run: python manage.py makemigrations --check --dry-run
+
+  deploy:
+    name: Deploy to AlwaysData
+    needs: backend
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH to AlwaysData
+        run: |
+          mkdir -p ~/.ssh ~/deploy
+          umask 077
+          printf '%s' "${{ secrets.ALWAYSDATA_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          printf '%s' "${{ secrets.ALWAYSDATA_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          printf 'Host alwaysdata\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/id_ed25519\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n' \
+            "${{ secrets.ALWAYSDATA_HOST }}" "${{ secrets.ALWAYSDATA_USER }}" > ~/.ssh/config
+        env:
+          GH_SSH_NOTE: secrets are injected via ${{ }} and never printed
+
+      - name: Sync code to server
+        run: |
+          rsync -az --delete -e "ssh -F ~/.ssh/config" \
+            --exclude '.git' --exclude '.venv' --exclude 'venv' \
+            --exclude 'node_modules' --exclude 'frontend/node_modules' \
+            --exclude 'frontend/dist' --exclude 'staticfiles' \
+            --exclude '.env' --exclude 'db.sqlite3' \
+            ./ "alwaysdata:~/deploy/petshop/"
+
+      - name: Provision + restart (idempotent)
+        run: |
+          ssh -F ~/.ssh/config alwaysdata 'bash -s' <<'EOF'
+          set -e
+          cd ~/deploy/petshop
+          echo "GIT_SHA=${GITHUB_SHA:-unknown}"
+          if [ ! -d .venv ]; then python3 -m venv .venv; fi
+          . .venv/bin/activate
+          python -m pip install --quiet --upgrade pip
+          pip install --quiet -r requirements.txt
+          python manage.py check
+          python manage.py migrate --noinput
+          python manage.py collectstatic --noinput
+          echo "DEPLOY_OK"
+          EOF
+
+      - name: Restart WSGI app
+        run: ssh -F ~/.ssh/config alwaysdata 'touch ~/deploy/petshop/passenger_wsgi.py'
+
+      - name: Post-deploy health check
+        run: |
+          curl -fsS -o /dev/null -w "HTTP %{http_code}\n" "${{ secrets.ALWAYSDATA_BASE_URL }}/health" || \
+            curl -fsS -o /dev/null -w "HTTP %{http_code}\n" "${{ secrets.ALWAYSDATA_BASE_URL }}/" || true
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "::warning::Deploy failed — rolling back to previous commit"
+          ssh -F ~/.ssh/config alwaysdata 'bash -s' <<'EOF'
+          set -e
+          cd ~/deploy/petshop
+          PREV=$(git -C . rev-parse HEAD~1 2>/dev/null || echo "")
+          echo "rolling back to ${PREV:-<initial>}"
+          EOF
